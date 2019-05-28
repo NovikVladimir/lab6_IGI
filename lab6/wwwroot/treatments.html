@@ -1,0 +1,217 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="wIdth=device-wIdth" />
+    <title>Записи</title>
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap-theme.min.css">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>Список лечений</h2>
+        <form name="treatmentForm">
+            <input type="hidden" name="treatmentID" value="0" />
+            <div class="form-group">
+                <label for="diseaseName">Болезнь:</label>
+                <select Id="diseaseID" name="diseaseID"></select>
+            </div>
+            <div class="form-group">
+                <label for="medicineName">Лекарство:</label>
+                <select Id="medicineID" name="medicineID"></select>
+            </div>
+            <div class="form-group">
+                <label for="treatmentDate">Дата лечения:</label>
+                <input class="form-control" name="treatmentDate" />
+            </div>
+            <div class="panel-body">
+                <a id="submit" class="btn btn-sm btn-primary">Сохранить</button>
+                <a id="reset" class="btn btn-sm btn-primary">Сбросить</a>
+            </div>
+        </form>
+
+
+        <table class="table table-condensed table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>Код</th>
+                    <th>Болезнь</th>
+                    <th>Лекарство</th>
+                    <th>Дата лечения</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <script>
+        // Получение всех лечений
+        function GetTreatments() {
+            
+            $.ajax({
+                url: '/api/values',
+                type: 'GET',
+                contentType: "application/json",
+                success: function (treatments) {
+                    console.log(treatments);
+                    var rows = "";
+                    $.each(treatments, function (index, treatment) {
+                        // добавляем полученные элементы в таблицу
+                        rows += row(treatment);
+                    })
+                    $("table tbody").append(rows);
+                }
+            });
+        }
+        // Получение одной операции
+        function GetTreatment(id) {
+            $.ajax({
+                url: '/api/values/' + id,
+                type: 'GET',
+                contentType: "application/json",
+                success: function (treatment) {
+                    var form = document.forms["treatmentForm"];
+                    form.elements["treatmentID"].value = treatment.treatmentID;
+                    form.elements["diseaseID"].selectedIndex = treatment.diseaseID;
+                    form.elements["medicineID"].selectedIndex = treatment.medicineID;
+                    form.elements["treatmentDate"].value = treatment.treatmentDate;
+                }
+            });
+        }
+        // Добавление операции
+        function CreateTreatments(diseaseID, medicineID, treatmentDate) {
+            $.ajax({
+                url: "/api/values",
+                contentType: "application/json",
+                method: "POST",
+                data: JSON.stringify({
+                    diseaseID: diseaseID,
+                    medicineID: medicineID,
+                    treatmentDate: treatmentDate
+                }),
+                success: function (treatment) {
+                    reset();
+                    var form = document.forms["treatmentForm"];
+                    operation.DiseaseName = form.elements["diseaseID"].options[diseaseID].text;
+                    operation.MedicineName = form.elements["medicineID"].options[medicineID].text;
+                    $("table tbody").append(row(treatment));
+                }
+            })
+        }
+        // Изменение операции
+        function EditTreatments(treatmentID, diseaseID, medicineID, treatmentDate) {
+            $.ajax({
+                url: "/api/values",
+                contentType: "application/json",
+                method: "PUT",
+                data: JSON.stringify({
+                    treatmentID: treatmentID,
+                    diseaseID: diseaseID,
+                    medicineID: medicineID,
+                    treatmentDate: treatmentDate
+                }),
+                success: function (treatment) {
+                    reset();
+                    var form = document.forms["treatmentForm"];
+                    treatment.diseaseName = form.elements["diseaseID"].options[diseaseID].value;
+                    treatment.medicinename = form.elements["medicineID"].options[medicineID].value;
+                    $("tr[data-rowid='" + treatment.treatmentID + "']").replaceWith(row(treatment));
+                }
+            })
+        }
+        // сброс формы
+        function reset() {
+            var form = document.forms["treatmentForm"];
+            form.reset();
+            form.elements["treatmentID"].value = 0;
+        }
+        // Удаление операции
+        function DeleteTreatment(id) {
+            $.ajax({
+                url: "api/values/" + id,
+                contentType: "application/json",
+                method: "DELETE",
+                success: function (treatment) {
+                    $("tr[data-rowid='" + treatment.treatmentID + "']").remove();
+                }
+            })
+        }
+        // создание строки для таблицы
+        var row = function (treatment) {
+            return "<tr data-rowid='" + treatment.treatmentID + "'><td>" + treatment.treatmentID + "</td>" +
+                "<td>" + treatment.diseaseName + "</td>" +
+                "<td>" + treatment.medicineName + "</td>" +
+                "<td>" + treatment.treatmentDate + "</td>" +
+                "<td><a class='editLink' data-id='" + treatment.treatmentID + "'>Изменить</a> | " +
+                "<a class='removeLink' data-id='" + treatment.treatmentID + "'>Удалить</a></td></tr>";
+        }
+        // Получение списка болезней
+        function GetDiseases() {
+            var listItems = "";
+            $.ajax({
+                url: '/api/values/diseases',
+                type: 'GET',
+                contentType: "application/json",
+                success: function (diseases) {
+                    listItems = listItems + "<option value=0 selected>(выбор)</option>";
+                    $.each(diseases, function (index, disease) {
+                        listItems = listItems + "<option value='" + disease.diseaseID + "'>" + disease.diseaseName + "</option>";
+                    });
+                    $("#diseaseID").html(listItems);
+                }
+            });
+        }
+
+        function GetMedicines() {
+            var listItems = "";
+            $.ajax({
+                url: '/api/values/medicines',
+                type: 'GET',
+                contentType: "application/json",
+                success: function (medicines) {
+                    listItems = listItems + "<option value=0 selected>(выбор)</option>";
+                    $.each(medicines, function (index, medicine) {
+                        listItems = listItems + "<option value='" + medicine.medicineID + "'>" + medicine.medicineName + "</option>";
+                    });
+                    $("#medicineID").html(listItems);
+                }
+            });
+        }
+
+        // сброс значений формы
+        $("#reset").click(function (e) {
+            e.preventDefault();
+            reset();
+        })
+        // отправка формы
+        $("#submit").click(function (e) {
+            e.preventDefault();
+            var treatmentID = this.elements["treatmentID"].value;
+            var diseaseID = this.elements["diseaseID"].selectedIndex;
+            var medicineID = this.elements["medicineID"].selectedIndex;
+            var treatmentDate = this.elements["treatmentDate"].value;
+            if (treatmentID == 0)
+                CreateTreatments(diseaseID, medicineID, treatmentDate);
+            else
+                EditTreatments(treatmentID, diseaseID, medicineID, treatmentDate);
+        });
+        // нажатие на ссылку Изменить
+        $("body").on("click", ".editLink", function () {
+            var id = $(this).data("id");
+            GetTreatment(id);
+        })
+        // нажатие на ссылку Удалить
+        $("body").on("click", ".removeLink", function () {
+            var id = $(this).data("id");
+            DeleteTreatment(id);
+        })
+        // загрузка данных для таблицы и ее формирование
+        GetTreatments();
+        GetDiseases();
+        GetMedicines();
+    </script>
+</body>
+</html>
